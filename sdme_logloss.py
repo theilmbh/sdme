@@ -299,7 +299,7 @@ def sdme_dlogloss3(stim, stmat, dat_STA, dat_STC, dat_COV, A, B, C):
     
     return [df1, df2, df3]
     
-def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, *args, **kwargs):
+def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
     '''
     What a year it's been. 
     This will return a number of samples from the probability function p
@@ -325,15 +325,15 @@ def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, *args, **kwargs):
     '''
 
     resp = init 
-    samples = np.zeros(N_dim, N_samples)
+    samples = np.zeros((N_dim, N_samples))
     # Burn in
     for step in range(N_burnin):
         for x in range(N_dim):
-            proposal = 1.0*(np.random.uniform() > 0.5)
-            current = resp[x]
-            prob_minus = p(resp, *args, **kwargs)[x]
+            proposal = 2.0*(np.random.uniform() >= 0.5) - 1
+            current = resp[x] 
+            prob_minus = p(resp, *args, **kwargs)
             resp[x] = proposal
-            prob_plus = p(resp, *args, **kwargs)[x]
+            prob_plus = p(resp, *args, **kwargs)
             acc = np.min([1.0, prob_plus/prob_minus])
             if np.random.uniform() >= acc:
                 resp[x] = current
@@ -342,11 +342,11 @@ def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, *args, **kwargs):
     while samps < N_samples:
         iters = iters+1
         for x in range(N_dim):
-            proposal = 1.0*(np.random.uniform() > 0.5)
+            proposal = 2.0*(np.random.uniform() >= 0.5) - 1
             current = resp[x]
-            prob_minus = p(resp, *args, **kwargs)[x]
+            prob_minus = p(resp, *args, **kwargs)
             resp[x] = proposal
-            prob_plus = p(resp, *args, **kwargs)[x]
+            prob_plus = p(resp, *args, **kwargs)
             acc = np.min([1.0, prob_plus/prob_minus])
             if np.random.uniform() >= acc:
                 resp[x] = current
@@ -355,4 +355,61 @@ def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, *args, **kwargs):
             samps = samps+1
     return samples 
 
+def mh_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
+    '''
+    What a year it's been. 
+    This will return a number of samples from the probability function p
+    obtained by gibbs sampling
+
+    Parameters 
+    ------
+    p : function 
+        A probability density over Ndim response variables that are {0, 1}
+    N_dim : int 
+        Number of dimensions of response 
+    N_samples : int 
+        Number of samples you want 
+    N_burnin : int 
+        Number of iterations to throw away at beginning 
+    N_skip : int 
+        Number of iterations to skip before taking a sample 
+
+    Returns
+    ------
+    samples : array 
+        Samples generated from p
+    '''
+
+    resp = init 
+    samples = np.zeros((N_dim, N_samples))
+    # Burn in
+    for step in range(N_burnin):
+        for x in range(N_dim):
+            
+            current = resp[x] 
+            proposal = dx*np.random.randn() + current
+            prob_minus = p(resp, *args, **kwargs)
+            resp[x] = resp[x]
+            prob_plus = p(resp, *args, **kwargs)
+            acc = np.min([1.0, prob_plus/prob_minus])
+            if np.random.uniform() >= acc:
+                resp[x] = current
+    iters=0
+    samps=0
+    while samps < N_samples:
+        iters = iters+1
+        for x in range(N_dim):
+            
+            current = resp[x]
+            proposal = dx*np.random.randn() + current
+            prob_minus = p(resp, *args, **kwargs)
+            resp[x] = proposal
+            prob_plus = p(resp, *args, **kwargs)
+            acc = np.min([1.0, prob_plus/prob_minus])
+            if np.random.uniform() >= acc:
+                resp[x] = current
+        if np.mod(iters, N_skip) == 0:
+            samples[:, samps] = resp
+            samps = samps+1
+    return samples
 
