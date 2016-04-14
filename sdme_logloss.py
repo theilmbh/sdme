@@ -481,7 +481,7 @@ def mh_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs)
             current = resp[x] 
             proposal = dx*np.random.randn() + current
             prob_minus = p(resp, *args, **kwargs)
-            resp[x] = resp[x]
+            resp[x] = proposal
             prob_plus = p(resp, *args, **kwargs)
             acc = np.min([1.0, prob_plus/prob_minus])
             if np.random.uniform() >= acc:
