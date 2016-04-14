@@ -299,6 +299,98 @@ def sdme_dlogloss3(stim, stmat, dat_STA, dat_STC, dat_COV, A, B, C):
     
     return [df1, df2, df3]
     
+
+def sdme_p(resp_vec, stim, beta_1, beta_2, beta_3):
+    '''
+    This generates the probability of a response vector based on model parameters 
+
+    Parameters
+    ------
+    resp_vec : numpy array
+        Array of binary values representing the response of each neuron
+        N_neuron x StimLen
+    stim :
+        stimulus matrix: StimDim x StimLen
+    beta_1 : Current STA model estimate NxStimDim
+    beta_2 :
+        Current STC model estimate N x StimDim x StimDim 
+    beta_3 :
+        current model covariance estimate NxN
+
+    Returns
+    ------
+    prob : float 
+        probability.  (not really a probability. But we don't need normalization for MC per se )
+    '''
+
+    E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
+    
+    probs = np.exp(-E)
+    return probs
+
+def parallel_gibbs_sampler(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
+    '''
+    What a year it's been. 
+    This will return a number of samples from the probability function p
+    obtained by gibbs sampling
+
+    Parameters 
+    ------
+    p : function 
+        A probability density over Ndim response variables that are {0, 1}
+    N_dim : int 
+        Number of dimensions of response
+    N_t : int 
+        Number of time points in response  
+    N_samples : int 
+        Number of samples you want 
+    N_burnin : int 
+        Number of iterations to throw away at beginning 
+    N_skip : int 
+        Number of iterations to skip before taking a sample 
+    init : array 
+        starting point.  Ndim x N_t
+
+    Returns
+    ------
+    samples : array 
+        Samples generated from p
+    '''
+
+    resp = init 
+    samples = np.zeros((N_dim, N_t, N_samples))
+    # Burn in
+    for step in range(N_burnin):
+        for x in range(N_dim):
+            proposal = 2.0*(np.random.uniform((1, N_t)) >= 0.5) - 1
+            current = resp[x, :] 
+            prob_minus = p(resp, *args, **kwargs)
+            resp[x, :] = proposal
+            prob_plus = p(resp, *args, **kwargs)
+            prob_rat = np.divide(prob_plus/prob_minus)
+            acc = np.minimum(np.ones(prob_rat.shape), prob_rat)
+            keeps = np.random.uniform((1, N_t))
+            resp[x, np.greater(keeps, acc)] = current[x, np.greater(keeps, acc)]
+    iters=0
+    samps=0
+    while samps < N_samples:
+        iters = iters+1
+        for x in range(N_dim):
+            proposal = 2.0*(np.random.uniform((1, N_t)) >= 0.5) - 1
+            current = resp[x, :] 
+            prob_minus = p(resp, *args, **kwargs)
+            resp[x, :] = proposal
+            prob_plus = p(resp, *args, **kwargs)
+            prob_rat = np.divide(prob_plus/prob_minus)
+            acc = np.minimum(np.ones(prob_rat.shape), prob_rat)
+            keeps = np.random.uniform((1, N_t))
+            resp[x, np.greater(keeps, acc)] = current[x, np.greater(keeps, acc)]
+        if np.mod(iters, N_skip) == 0:
+            samples[:, samps] = resp
+            samps = samps+1
+    return samples 
+
+
 def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
     '''
     What a year it's been. 
