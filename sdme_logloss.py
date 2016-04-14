@@ -300,7 +300,7 @@ def sdme_dlogloss3(stim, stmat, dat_STA, dat_STC, dat_COV, A, B, C):
     return [df1, df2, df3]
     
 
-def sdme_p(resp_vec, stim, beta_1, beta_2, beta_3):
+def sdme_p(resp_vec, stim, order, beta_1, beta_2, beta_3):
     '''
     This generates the probability of a response vector based on model parameters 
 
@@ -322,9 +322,10 @@ def sdme_p(resp_vec, stim, beta_1, beta_2, beta_3):
     prob : float 
         probability.  (not really a probability. But we don't need normalization for MC per se )
     '''
-
-    E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
-    
+    if order == 1:
+        E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
+    else order == 2:
+        E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
     probs = np.exp(-E)
     return probs
 
