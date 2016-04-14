@@ -355,6 +355,7 @@ def parallel_gibbs_sampler(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx,
     ------
     samples : array 
         Samples generated from p
+        Ndim x N_t x N_samples
     '''
 
     resp = init 
@@ -362,31 +363,33 @@ def parallel_gibbs_sampler(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx,
     # Burn in
     for step in range(N_burnin):
         for x in range(N_dim):
-            proposal = 2.0*(np.random.uniform((1, N_t)) >= 0.5) - 1
+            proposal = 2.0*(np.random.uniform(size=(1, N_t)) >= 0.5) - 1
             current = resp[x, :] 
             prob_minus = p(resp, *args, **kwargs)
-            resp[x, :] = proposal
+            resp[x, :] = proposal.flatten()
             prob_plus = p(resp, *args, **kwargs)
-            prob_rat = np.divide(prob_plus/prob_minus)
+            prob_rat = np.divide(prob_plus,prob_minus)
             acc = np.minimum(np.ones(prob_rat.shape), prob_rat)
-            keeps = np.random.uniform((1, N_t))
-            resp[x, np.greater(keeps, acc)] = current[x, np.greater(keeps, acc)]
+            keeps = np.random.uniform(size=(1, N_t))
+            acc_vec = np.greater(keeps, acc)
+            resp[x, acc_vec.flatten()] = current[acc_vec.flatten()]
     iters=0
     samps=0
     while samps < N_samples:
         iters = iters+1
         for x in range(N_dim):
-            proposal = 2.0*(np.random.uniform((1, N_t)) >= 0.5) - 1
+            proposal = 2.0*(np.random.uniform(size=(1, N_t)) >= 0.5) - 1
             current = resp[x, :] 
             prob_minus = p(resp, *args, **kwargs)
-            resp[x, :] = proposal
+            resp[x, :] = proposal.flatten()
             prob_plus = p(resp, *args, **kwargs)
-            prob_rat = np.divide(prob_plus/prob_minus)
+            prob_rat = np.divide(prob_plus,prob_minus)
             acc = np.minimum(np.ones(prob_rat.shape), prob_rat)
-            keeps = np.random.uniform((1, N_t))
-            resp[x, np.greater(keeps, acc)] = current[x, np.greater(keeps, acc)]
+            keeps = np.random.uniform(size=(1, N_t))
+            acc_vec = np.greater(keeps, acc)
+            resp[x, acc_vec.flatten()] = current[acc_vec.flatten()]
         if np.mod(iters, N_skip) == 0:
-            samples[:, samps] = resp
+            samples[:, :, samps] = resp
             samps = samps+1
     return samples 
 
