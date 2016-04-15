@@ -324,7 +324,7 @@ def sdme_p(resp_vec, stim, order, beta_1, beta_2, beta_3):
     '''
     if order == 1:
         E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
-    else order == 2:
+    elif order == 2:
         E = np.diag(np.dot(np.dot(np.transpose(resp_vec),beta_1),stim)) + np.diag(np.dot(np.dot(np.transpose(resp_vec), beta_3), resp_vec))
     probs = np.exp(-E)
     return probs
