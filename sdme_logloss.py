@@ -91,7 +91,36 @@ def data_to_cov2(spikes):
     cov -= np.diagflat(np.diag(cov))
     return cov
     
-def sdme_logloss(stim, resp, stmat, A, B, C):
+def sdme_logloss(stim, N, stimlen, A, B, C):
+    
+    # A: Current STA model estimate N x StimDim
+    # B: Current STC model estimate N x StimDim x StimDim
+    # C: Current Neuron-Neuron covarariance estimate N x N
+    # stmat: matrix of possible states
+    # stim: stim matrix StimDim x StimLen
+    # resp: response matrix N x SimLen   or... P(x|s) from data: 2^N x Stimlen because this is fixed for the fitting
+    
+    
+    stimdim, stimlen = np.shape(stim)
+    
+    #Generate samples 
+    p_params = [stim, 1, A, B, C]
+    N_samples = 500
+    N_burnin = 50
+    N_skip = 100
+    init = 1.0*(np.random.uniform(size=(N, stimlen)) >0.5)
+    dx=0
+    samples = parallel_gibbs_sampler2(sdme_p, N, stimlen, N_samples, N_burnin, N_skip, 
+                                      init, dx, *p_params)
+
+    lgp_samp = np.zeros(stimlen)
+    for samp in range(N_samples):
+        lgp_samp = lgp_samp + -1.0*np.log(sdme_p(samples[:, :, samp], stim, 1, A, B, C))
+    
+    logloss = np.mean(lgp_samp)
+    return logloss
+
+def sdme_logloss0(stim, resp, stmat, A, B, C):
     
     # A: Current STA model estimate N x StimDim
     # B: Current STC model estimate N x StimDim x StimDim
@@ -175,7 +204,50 @@ def sdme_logloss3(stim, resp, stmat, A, B, C):
     logloss = -1.0*np.einsum('ij,ij',logprobs, resp)  / (1.0*stimlen)
     return logloss
     
-def sdme_dlogloss(stim, dat_STA, dat_STC, dat_COV, stmat, A, B, C):
+def sdme_dlogloss(stim, N, dat_STA, dat_STC, dat_COV, A, B, C):
+    # A: Current STA model estimate N x StimDim
+    # B: Current STC model estimate N x StimDim x StimDim
+    # C: Current Neuron-Neuron covarariance estimate 2^N x 2^N
+    # stmat: matrix of possible states
+    # stim: stim matrix StimDim x StimLen
+    # dat_ : parameters estimated from data. 
+    
+        
+    # N, stimlen = np.shape(resp)
+    stimdim, stimlen = np.shape(stim)
+    
+    # #Generate samples 
+    # p_params = [stim, 1, A, B, C]
+    # N_samples = 100
+    # N_burnin = 50
+    # N_skip = 10
+    # init = 1.0*(np.random.uniform(size=(N, stimlen)) >0.5)
+    # dx=0
+    # samples = parallel_gibbs_sampler2(sdme.sdme_p, N, stimlen, N_samples, N_burnin, N_skip, 
+    #                                   init, dx, *p_params)
+    
+    #Generate samples 
+    p_params = [stim, 1, A, B, C]
+    N_samples = 500
+    N_burnin = 50
+    N_skip = 100
+    init = 1.0*(np.random.uniform(size=(N, stimlen)) >0.5)
+    dx=0
+    samples = parallel_gibbs_sampler2(sdme_p, N, stimlen, N_samples, N_burnin, N_skip, 
+                                      init, dx, *p_params)
+
+    mod_STA = data_to_sta(samples, stim)
+    #mod_STC = data_to_stc(samples, stim)
+    mod_COV = data_to_cov(samples)
+    
+    df1 = dat_STA - mod_STA
+    #df2 = dat_STC - mod_STC
+    df3 = dat_COV - mod_COV
+    df2 = 0
+    return [df1, df2, df3]
+    
+
+def sdme_dlogloss0(stim, dat_STA, dat_STC, dat_COV, stmat, A, B, C):
     # A: Current STA model estimate N x StimDim
     # B: Current STC model estimate N x StimDim x StimDim
     # C: Current Neuron-Neuron covarariance estimate 2^N x 2^N
