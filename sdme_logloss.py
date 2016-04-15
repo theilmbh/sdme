@@ -361,6 +361,7 @@ def parallel_gibbs_sampler(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx,
 
     resp = init 
     samples = np.zeros((N_dim, N_t, N_samples))
+    n_accept = np.zeros((N_dim, N_t))
     # Burn in
     for step in range(N_burnin):
         for x in range(N_dim):
@@ -389,11 +390,71 @@ def parallel_gibbs_sampler(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx,
             keeps = np.random.uniform(size=(1, N_t))
             acc_vec = np.greater(keeps, acc)
             resp[x, acc_vec.flatten()] = current[acc_vec.flatten()]
+            n_accept[x, :] = n_accept[x, :] + 1.0*acc_vec
+        if np.mod(iters, N_skip) == 0:
+            samples[:, :, samps] = resp
+            samps = samps+1
+    return (samples, n_accept/iters) 
+
+def parallel_gibbs_sampler2(p, N_dim, N_t, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
+    '''
+    What a year it's been. 
+    This will return a number of samples from the probability function p
+    obtained by gibbs sampling
+
+    Parameters 
+    ------
+    p : function 
+        A probability density over Ndim response variables that are {0, 1}
+    N_dim : int 
+        Number of dimensions of response
+    N_t : int 
+        Number of time points in response  
+    N_samples : int 
+        Number of samples you want 
+    N_burnin : int 
+        Number of iterations to throw away at beginning 
+    N_skip : int 
+        Number of iterations to skip before taking a sample 
+    init : array 
+        starting point.  Ndim x N_t
+
+    Returns
+    ------
+    samples : array 
+        Samples generated from p
+        Ndim x N_t x N_samples
+    '''
+
+    resp = init 
+    samples = np.zeros((N_dim, N_t, N_samples))
+    n_accept = np.zeros((N_dim, N_t))
+    # Burn in
+    for step in range(N_burnin):
+        for x in range(N_dim):
+            resp[x, :] = 1
+            raw_prob1 = p(resp, *args, **kwargs)
+            resp[x, :] = -1
+            raw_prob2 = p(resp, *args, **kwargs)
+            prob1 = np.divide(raw_prob1,(raw_prob1+raw_prob2))
+            to_1 = np.less(np.random.uniform(size=(1, N_t)), prob1)
+            resp[x, to_1.flatten()] = 1
+    iters=0
+    samps=0
+    while samps < N_samples:
+        iters = iters+1
+        for x in range(N_dim):
+            resp[x, :] = 1
+            raw_prob1 = p(resp, *args, **kwargs)
+            resp[x, :] = -1
+            raw_prob2 = p(resp, *args, **kwargs)
+            prob1 = np.divide(raw_prob1,(raw_prob1+raw_prob2))
+            to_1 = np.less(np.random.uniform(size=(1, N_t)), prob1)
+            resp[x, to_1.flatten()] = 1
         if np.mod(iters, N_skip) == 0:
             samples[:, :, samps] = resp
             samps = samps+1
     return samples 
-
 
 def gibbs_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs):
     '''
