@@ -642,3 +642,5 @@ def mh_sampler(p, N_dim, N_samples, N_burnin, N_skip, init, dx, *args, **kwargs)
             samps = samps+1
     return samples
 
+def sdme_p_binary(resp_vec, stim, neural_order, stim_order, ):
+    return 0
